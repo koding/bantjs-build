@@ -1,0 +1,5 @@
+# bant-build
+
+# license
+
+mit
