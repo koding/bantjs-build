@@ -13,7 +13,13 @@ module.exports = build;
 inherits(build, Duplex);
 
 function build (b, opts) {
-  if (arguments.length < 2) { opts = b; b = browserify(); }
+  if (arguments.length < 2) {
+    if ('function' !== typeof b.bundle) {
+      opts = b;
+      b = browserify(opts._browserify || {});
+    }
+  }
+
   if (!(this instanceof build)) return new build(b, opts);
   Duplex.call(this, { objectMode: true });
 
@@ -34,7 +40,7 @@ function build (b, opts) {
     var streams = [], entries = [];
 
     rows.forEach(function (row) {
-      streams.push(self._concat(row.id));
+      streams.push(self._concat(row.name));
       entries.push(row._entry.file);
 
       if (row._entry) {
@@ -92,11 +98,11 @@ build.prototype._createPipeline = function () {
   return pipeline;
 };
 
-build.prototype._concat = function (id) {
+build.prototype._concat = function (name) {
   var self = this;
   return concat(function (buf) {
-    self._buf.push({ id: id || 'common', source: buf });
-    self.emit('_drainbuf', !id);
+    self._buf.push({ name: name || 'common', source: buf });
+    self.emit('_drainbuf', !name);
   });
 };
 

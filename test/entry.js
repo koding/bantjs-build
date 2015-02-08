@@ -9,7 +9,7 @@ test('pipeline', function (t) {
   var b = build();
   var rows = {};
   tr.pipe(b).pipe(through.obj(function (row, enc, cb) {
-    rows[row.id] = row;
+    rows[row.name] = row;
     cb();
   }, function () {
     var src = rows['common'].source.toString('utf8');
@@ -17,8 +17,8 @@ test('pipeline', function (t) {
     src += ';' + rows['y'].source.toString('utf8');
     vm.runInNewContext(src, { t: t });
   }));
-  tr.write({id: 'x', main: __dirname + '/entry/x.js' });
-  tr.write({id: 'y', main: __dirname + '/entry/y.js' });
+  tr.write({name: 'x', main: __dirname + '/entry/x.js' });
+  tr.write({name: 'y', main: __dirname + '/entry/y.js' });
   tr.end();
 });
 
