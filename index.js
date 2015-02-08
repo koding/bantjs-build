@@ -16,8 +16,10 @@ module.exports = build;
 inherits(build, Duplex);
 
 function build (b, opts) {
-  if (!b || (b && 'function' !== typeof b.bundle))
-    opts = b; b = browserify();
+  if (!b || (b && 'function' !== typeof b.bundle)) {
+    opts = b;
+    b = browserify();
+  }
 
   if (!(this instanceof build)) return new build(b, opts);
   Duplex.call(this, { objectMode: true });
