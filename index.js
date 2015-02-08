@@ -30,6 +30,7 @@ function build (b, opts) {
   this._normalize = normalize(opts);
   this._buf = [];
   this._rows = [];
+  this._globals = opts.globals || {};
   this._b = b;
 
   this.pipeline
@@ -65,9 +66,8 @@ build.prototype.bundle = function () {
   var self = this,
       rows = self._rows,
       b = self._b,
-      outputs = [], globals = {};
-
-  b.exclude('globals');
+      g = extend({}, self._globals)
+      outputs = [];
 
   rows.forEach(function (row) {
     if (row.name) {
@@ -86,46 +86,21 @@ build.prototype.bundle = function () {
       });
       outputs.push(self._concat(row.name));
       b.exclude(row.main.expose);
-    } else if ('object' === typeof row.globals) {
-      extend(globals, row.globals);
     }
   });
 
-  globals = 'var g = ' + JSON.stringify(globals) + ';\nmodule.exports = g;';
-  b.require(read(globals), { entry: true, expose: 'globals' });
+  g = 'var g = ' + JSON.stringify(g) + ';\nmodule.exports = g;';
+  b.require(read(g), { entry: true, expose: 'globals' }).exclude('globals');
 
-  b.plugin(factor, {
-    outputs: outputs,
-    threshold: function (row, groups) {
-      if ('globals' === row.id) return true;
-      return this._defaultThreshold(row, groups);
-    }
-  });
-
-  b.pipeline.get('emit-deps').push(through.obj(function (row, enc, cb) {
-    this.push(row);
-    cb();
-  }));
+  b.plugin(factor, { outputs: outputs });
 
   b.bundle(function (err, src) {
     if (err) throw err;
   }).pipe(self._concat());
 };
 
-build.prototype._globals = function () {
-  return through.obj(function (row, enc, cb) {
-    if (!row.name && 'object' === typeof row.globals)
-      this.push({ globals: row.globals });
-    else this.push(row);
-    cb();
-  });
-};
-
 build.prototype._createPipeline = function () {
-  var pipeline = splicer.obj([
-    'globals', [ this._globals() ],
-    'wrap', []
-  ]);
+  var pipeline = splicer.obj([ 'wrap', [] ]);
   return pipeline;
 };
 
