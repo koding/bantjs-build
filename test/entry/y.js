@@ -1,1 +1,1 @@
-t.ok(2);
+require('./z.js');

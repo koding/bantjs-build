@@ -3,8 +3,8 @@ var test = require('tape');
 var through = require('through2');
 var vm = require('vm');
 
-test('entry', function (t) {
-  t.plan(2);
+test('expose', function (t) {
+  t.plan(1);
   var tr = through.obj();
   var b = build();
   var rows = {};
@@ -13,12 +13,13 @@ test('entry', function (t) {
     cb();
   }, function () {
     var src = rows.common.source.toString('utf8');
-    src += ';' + rows.x.source.toString('utf8');
-    src += ';' + rows.y.source.toString('utf8');
+    src += rows.x.source.toString('utf8');
+    src += rows.y.source.toString('utf8');
+    src += "require('bar')();";
     vm.runInNewContext(src, { t: t });
   }));
-  tr.write({name: 'x', main: __dirname + '/entry/x.js' });
-  tr.write({name: 'y', main: __dirname + '/entry/y.js' });
+  tr.write({name: 'y', main: __dirname + '/expose/y.js', expose: 'bar'});
+  tr.write({name: 'x', main: __dirname + '/expose/x.js', expose: 'foo'});
   tr.end();
 });
 

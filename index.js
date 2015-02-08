@@ -4,68 +4,54 @@ var through = require('through2');
 var inherits = require('util').inherits;
 var normalize = require('bant-normalize');
 var Duplex = require('readable-stream/duplex');
+var Readable = require('readable-stream/readable');
 var splicer = require('labeled-stream-splicer');
 var browserify = require('browserify');
 var factor = require('factor-bundle');
+var path = require('path');
 
 
 module.exports = build;
 inherits(build, Duplex);
 
 function build (b, opts) {
-  if (arguments.length < 2) {
-    if ('function' !== typeof b.bundle) {
-      opts = b;
-      b = browserify(opts._browserify || {});
-    }
-  }
+  if (!b || (b && 'function' !== typeof b.bundle))
+    opts = b; b = browserify();
 
   if (!(this instanceof build)) return new build(b, opts);
   Duplex.call(this, { objectMode: true });
 
   if (!opts) opts = {};
 
-  var self = this, rows = [];
+  var self = this;
 
-  this._buf = [];
   this.pipeline = this._createPipeline();
   this._normalize = normalize(opts);
+  this._buf = [];
+  this._rows = [];
+  this._b = b;
+
+  this.pipeline
+      .on('data', function (row) {
+        self._rows.push(row);
+      })
+      .once('end', function () {
+        self.bundle();
+      });
+
   this._normalize.pipe(this.pipeline);
+
   this.once('finish', function () { self._normalize.end(); });
-
-  this.pipeline.on('data', function (row) {
-    rows.push(row);
-  }).once('end', function () {
-
-    var streams = [], entries = [];
-
-    rows.forEach(function (row) {
-      streams.push(self._concat(row.name));
-      entries.push(row._entry.file);
-
-      if (row._entry) {
-        b.require(row._entry.file, {
-          entry: true, expose: row._entry.expose
-        });
-      }
-    });
-
-    b.plugin(factor, { 
-      outputs: streams
-    }).bundle(function (err, res) {
-      if (err) throw err;
-    }).pipe(self._concat());
-  });
-
 }
 
 build.prototype._read = function (n) { 
   var row, self = this, read = 0;
   while ((row = self._buf.shift()) != null) { self.push(row); read++; }
   if (read === 0) {
-    self.once('_drainbuf', function (end) { 
+    self.once('_buffer', function (name, source) { 
+      self._buf.push({ name: name || 'common', source: source });
       self._read(n); 
-      if (end) self.push(null);
+      if (!name) self.push(null);
     });
   }
 };
@@ -74,25 +60,33 @@ build.prototype._write = function (row, enc, cb) {
   return this._normalize._write(row, enc, cb);
 };
 
-build.prototype._group = function () {
-  var self = this;
-  return through.obj(function (row, enc, cb) {
-    var files = [], entry;
-    row.scripts.forEach(function (obj) {
-      var isEntry = obj.entry || false;
-      if (isEntry) entry = obj;
-      else files.push(obj);
+build.prototype.bundle = function () {
+  var self = this,
+      rows = self._rows,
+      b = self._b,
+      outputs = [];
+
+  rows.forEach(function (row) {
+    var src = "module.exports=require('./" + path.basename(row.main.file) + "');";
+    b.require(read(src), {
+      entry: true,
+      expose: row.main.expose,
+      basedir: path.dirname(row.main.file)
     });
-    row._files = files;
-    row._entry = entry;
-    this.push(row);
-    cb();
+    outputs.push(self._concat(row.name));
+    b.exclude(row.main.expose);
   });
+
+  b.plugin(factor, {
+    outputs: outputs
+  });
+  b.bundle(function (err, src) {
+    if (err) throw err;
+  }).pipe(self._concat());
 };
 
 build.prototype._createPipeline = function () {
   var pipeline = splicer.obj([
-    'scripts', [ this._group() ],
     'wrap', []
   ]);
   return pipeline;
@@ -101,10 +95,18 @@ build.prototype._createPipeline = function () {
 build.prototype._concat = function (name) {
   var self = this;
   return concat(function (buf) {
-    self._buf.push({ name: name || 'common', source: buf });
-    self.emit('_drainbuf', !name);
+    self.emit('_buffer', name, buf);
   });
 };
 
 function isStream (s) { return s && typeof s.pipe === 'function'; }
+
+function read (src) {
+  var s = Readable();
+  s._read = function () {
+    s.push(src);
+    s.push(null);
+  };
+  return s;
+}
 

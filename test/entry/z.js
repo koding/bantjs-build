@@ -1,1 +1,1 @@
-module.exports = 'quux';
+t.ok(2);
