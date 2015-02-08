@@ -9,6 +9,7 @@ var splicer = require('labeled-stream-splicer');
 var browserify = require('browserify');
 var factor = require('factor-bundle');
 var path = require('path');
+var extend = require('util')._extend;
 
 
 module.exports = build;
@@ -64,29 +65,65 @@ build.prototype.bundle = function () {
   var self = this,
       rows = self._rows,
       b = self._b,
-      outputs = [];
+      outputs = [], globals = {};
+
+  b.exclude('globals');
 
   rows.forEach(function (row) {
-    var src = "module.exports=require('./" + path.basename(row.main.file) + "');";
-    b.require(read(src), {
-      entry: true,
-      expose: row.main.expose,
-      basedir: path.dirname(row.main.file)
-    });
-    outputs.push(self._concat(row.name));
-    b.exclude(row.main.expose);
+    if (row.name) {
+      var src = '';
+      if ('object' === typeof row.globals) {
+        src += "var globals = require('globals');\n";
+        Object.keys(row.globals).forEach(function (key) {
+          src += "globals['" + key + "'] = " + JSON.stringify(row.globals[key]) + ";\n";
+        });
+      }
+      src += "module.exports=require('./" + path.basename(row.main.file) + "');";
+      b.require(read(src), {
+        entry: true,
+        expose: row.main.expose,
+        basedir: path.dirname(row.main.file)
+      });
+      outputs.push(self._concat(row.name));
+      b.exclude(row.main.expose);
+    } else if ('object' === typeof row.globals) {
+      extend(globals, row.globals);
+    }
   });
 
+  globals = 'var g = ' + JSON.stringify(globals) + ';\nmodule.exports = g;';
+  b.require(read(globals), { entry: true, expose: 'globals' });
+
   b.plugin(factor, {
-    outputs: outputs
+    outputs: outputs,
+    threshold: function (row, groups) {
+      if ('globals' === row.id) return true;
+      return this._defaultThreshold(row, groups);
+    }
   });
+
+  b.pipeline.get('emit-deps').push(through.obj(function (row, enc, cb) {
+    this.push(row);
+    cb();
+  }));
+
   b.bundle(function (err, src) {
     if (err) throw err;
   }).pipe(self._concat());
 };
 
+build.prototype._globals = function () {
+  return through.obj(function (row, enc, cb) {
+    if (!row.name && 'object' === typeof row.globals)
+      this.push({ globals: row.globals });
+    else this.push(row);
+    cb();
+  });
+};
+
 build.prototype._createPipeline = function () {
   var pipeline = splicer.obj([
+    'globals', [ this._globals() ],
     'wrap', []
   ]);
   return pipeline;
