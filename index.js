@@ -53,7 +53,10 @@ function build (b, opts) {
             });
           }
 
-          src += "module.exports=require('./" + path.basename(row.main.file) + "');\n";
+          // XXX: dedupe fail
+          //src += "module.exports=require('./" + path.basename(row.main.file) + "');\n";
+
+          src += "module.exports=require('" + row.main.file + "');\n";
 
           b.require(read(src), {
             entry: true,
