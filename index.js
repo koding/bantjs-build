@@ -9,7 +9,6 @@ var Readable = require('readable-stream/readable');
 var browserify = require('browserify');
 var factor = require('factor-bundle');
 var path = require('path');
-var extend = require('util')._extend;
 
 
 module.exports = build;
@@ -78,6 +77,7 @@ build.prototype._end = function () {
   var self = this,
       branches = self._branches,
       nodes = self._nodes,
+      globals = self._globals,
       b = this._b,
       outputs = [];
 
@@ -98,6 +98,8 @@ build.prototype._end = function () {
       outputs.push(self._packup.bind(self, branch.name));
     }
   });
+
+  globals.modules = nodes;
 
   b
     .require(self._wrapGlobals(), {
