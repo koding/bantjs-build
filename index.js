@@ -60,7 +60,8 @@ build.prototype._wrap = function (branch) {
   }
 
   // todo: investigate dedupe fail, we don't want to expose fullpaths
-  src += "module.exports = require('" + branch.main + "');\n";
+  var file = path.join(branch.basedir, branch.main);
+  src += "module.exports = require('" + file + "');\n";
 
   return read(src);
 };
@@ -88,7 +89,7 @@ build.prototype._end = function () {
     b.require(self._wrap(branch), {
       entry: true,
       expose: branch.expose,
-      basedir: path.dirname(branch.main)
+      basedir: branch.basedir
     });
 
     if (!self._watch) {
