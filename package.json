@@ -21,7 +21,8 @@
   },
   "homepage": "https://github.com/bantjs/bant-build",
   "dependencies": {
-    "bant-normalize": "^0.1.1",
+    "bant-flatten": "^0.1.0",
+    "bant-normalize": "^0.1.3",
     "browserify": "^8.1.3",
     "concat-stream": "^1.4.7",
     "debug": "^2.1.1",
