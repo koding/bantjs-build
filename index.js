@@ -33,6 +33,7 @@ function build (b, opts) {
   self._normalize = normalize(opts);
   self._branches = [];
   self._nodes = [];
+  self._buf = [];
   self._globals = opts.globals || {};
   self._watch = ('function' === typeof b.close);
 
