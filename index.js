@@ -165,8 +165,13 @@ build.prototype._packup = function (name) {
 build.prototype._wbundle = function () {
   var b = this._b, self = this;
   var wb = b.bundle(function (err, src) {
-    if (err) return debug('werror', err);
+    if (err) return;
     var data = { name: 'common', source: src };
+    self.emit('bundle', data);
+  });
+  wb.on('error', function (err) {
+    debug('error: ' + String(err));
+    var data = { name: 'common', source: 'console.error('+JSON.stringify(String(err))+')' };
     self.emit('bundle', data);
   });
   return wb;
