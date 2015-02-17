@@ -9,6 +9,7 @@ var Readable = require('readable-stream/readable');
 var browserify = require('browserify');
 var factor = require('factor-bundle');
 var path = require('path');
+var Spinner = require('cli-spinner').Spinner;
 
 
 module.exports = build;
@@ -111,8 +112,10 @@ build.prototype._end = function () {
     .plugin(factor, { outputs: outputs });
 
   if (!self._watch) {
+    this._startSpinner();
     s = b.bundle(function (err, src) {
       if (err) throw err;
+      self._stopSpinner();
     }).pipe(self._packup());
   } else {
     b.on('update', function (ids) {
@@ -124,6 +127,19 @@ build.prototype._end = function () {
     }());
   }
 
+};
+
+build.prototype._startSpinner = function () {
+  this._spinner = new Spinner('bundling... %s');
+  this._spinner.setSpinnerString('|/-\\');
+  this._spinner.start();
+};
+
+build.prototype._stopSpinner = function () {
+  if (this._spinner) {
+    this._spinner.stop(true);
+    delete this._spinner;
+  }
 };
 
 build.prototype.pipe = function () {
@@ -164,8 +180,10 @@ build.prototype._packup = function (name) {
 
 build.prototype._wbundle = function () {
   var b = this._b, self = this;
+  self._startSpinner();
   var wb = b.bundle(function (err, src) {
     if (err) return;
+    self._stopSpinner();
     var data = { name: 'common', source: src };
     self.emit('bundle', data);
   });
